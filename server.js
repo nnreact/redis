@@ -15,63 +15,153 @@ await redisClient.connect();
 app.use(cors());
 app.use(express.json());
 
-app.get('/', async(req, res) => {
+// app.get('/', async(req, res) => {
 
-    // check if data is in redis
-    const cachedInvoices = await redisClient.get('invoices');
+//     // check if data is in redis
+//     const cachedInvoices = await redisClient.get('invoices');
 
-    if (cachedInvoices) {
-        return res.json({
-            status: 'success',
-            count: cachedInvoices.length,
-            message: 'Invoices fetched successfully',
-            data: cachedInvoices
-        });
+//     if (cachedInvoices) {
+//         return res.json({
+//             status: 'success',
+//             count: cachedInvoices.length,
+//             message: 'Invoices fetched successfully',
+//             data: cachedInvoices
+//         });
+//     }
+//     const invoices = await prisma.invoice.findMany();
+//     const invoiceCount = await prisma.invoice.count();
+
+//     // save to redis
+//     await redisClient.set('invoices', JSON.stringify(invoices));
+
+//     // create dummy delay
+//     res.json({
+//         status: 'success',
+//         count: invoiceCount,
+//         message: 'Invoices fetched successfully',
+//         data: invoices
+//     });
+// });
+
+// app.get('/invoice/:id', async(req, res) => {
+//     const { id } = req.params;
+
+
+//     const cachedInvoice = await redisClient.get(`invoice:${id}`);
+
+//     if (cachedInvoice) {
+//         return res.json({
+//             status: 'success',
+//             message: 'Invoice fetched successfully',
+//             data: JSON.parse(cachedInvoice)
+//         })
+//     }
+
+//     const invoice = await prisma.invoice.findUnique({
+//         where: {
+//             id: id
+//         }
+//     })
+
+//     if (!invoice) {
+//         return res.status(404).json({
+//             status: 'error',
+//             message: 'Invoice not found'
+//         })
+//     }
+
+//     await redisClient.set(`invoice:${id}`, JSON.stringify(invoice), {
+//         EX: 60,
+//         NX: true
+//     });
+//     res.json({
+//         status: 'success',
+//         message: 'Invoice fetched successfully',
+//         data: invoice
+//     })
+
+// })
+
+// app.get('/get-data', async(req, res) => {
+
+//     //     // if data is in redis
+//     //     const cachedData = await redisClient.get('countedNumber');
+//     //     if (cachedData) {
+//     //         return res.json({
+//     //             status: 'success',
+//     //             message: 'Data fetched successfully',
+//     //             data: cachedData
+//     //         });
+//     //     }
+
+//     let someValue = 0;
+//     for (let i = 0; i < 10000000000; i++) {
+//         someValue += i;
+//     }
+
+//     //     await redisClient.set('countedNumber', someValue);
+
+//     res.json({
+//         status: 'success',
+//         message: 'Data fetched successfully',
+//         data: someValue
+//     });
+// });
+
+app.put("/invoice/:id", async(req, res) => {
+    const { id } = req.params;
+    const { amount } = req.body;
+
+    const invoice = await prisma.invoice.update({
+        where: { id: id },
+        data: { amount: amount }
+    })
+
+    const cachedInvoice = await redisClient.get(`invoice:${id}`);
+
+    if (cachedInvoice) {
+        // await redisClient.set(`invoice:${id}`, JSON.stringify(invoice), {
+        //     EX: 60,
+        //     NX: true
+        // });
+        // delete the key
+        await redisClient.del(`invoice:${id}`);
     }
-    const invoices = await prisma.invoice.findMany();
-    const invoiceCount = await prisma.invoice.count();
 
-    // save to redis
-    await redisClient.set('invoices', JSON.stringify(invoices));
-
-    // create dummy delay
     res.json({
         status: 'success',
-        count: invoiceCount,
-        message: 'Invoices fetched successfully',
-        data: invoices
-    });
-});
+        message: 'Invoice updated successfully',
+        data: invoice
+    })
+})
 
-app.get('/get-data', async(req, res) => {
+app.get("/profile/:id", async(req, res) => {
+    const { id } = req.params;
 
-    // if data is in redis
-    const cachedData = await redisClient.get('countedNumber');
-    if (cachedData) {
-        return res.json({
-            status: 'success',
-            message: 'Data fetched successfully',
-            data: cachedData
-        });
-    }
-
-    let someValue = 0;
-    for (let i = 0; i < 10000000000; i++) {
-        someValue += i;
-    }
-
-    await redisClient.set('countedNumber', someValue);
-
-    res.json({
+    const cachedProfile = await redisClient.get(`profile:${id}:age`);
+    return res.json({
         status: 'success',
-        message: 'Data fetched successfully',
-        data: someValue
-    });
+        message: 'Profile fetched successfully',
+        data: JSON.parse(cachedProfile)
+    })
+}
+
+const profile = await prisma.profile.findUnique({
+    where: {
+        id: id
+    }
+})
+
+await redisClient.set(`profile:${id}`, JSON.stringify(profile), {
+    EX: 60,
+    NX: true
 });
 
-
-app.listen(3000, () => {
-    console.log('Server is running on port 3000');
+res.json({
+    status: 'success',
+    message: 'Profile fetched successfully',
+    data: profile
+})
 });
 
 
